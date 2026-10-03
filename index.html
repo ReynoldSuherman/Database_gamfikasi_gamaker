@@ -12,6 +12,8 @@
         .pixel-box { border: 3px solid #1e293b; box-shadow: 4px 4px 0px #1e293b; }
         .pixel-btn { border: 2px solid #1e293b; box-shadow: 2px 2px 0px #1e293b; transition: all 0.1s ease; }
         .pixel-btn:active { transform: translate(2px, 2px); box-shadow: 0px 0px 0px #1e293b; }
+        .pixel-input { border: 2px solid #1e293b; outline: none; }
+        .pixel-input:focus { ring: 2px; border-color: #4f46e5; }
     </style>
 </head>
 <body class="bg-slate-100 text-slate-800 min-h-screen p-6">
@@ -21,7 +23,7 @@
         <header class="pixel-box bg-white p-6 flex flex-col md:flex-row justify-between items-center rounded-lg">
             <div>
                 <h1 class="pixel-font text-4xl text-indigo-600 tracking-wider">GAME MAKER DATABASE DASHBOARD</h1>
-                <p class="text-sm text-slate-500">Live sync dari Sidebar Game Maker &rarr; Supabase &rarr; Vercel</p>
+                <p class="text-sm text-slate-500">Live sync dari Sidebar Game Maker &rarr; Supabase &rarr; GitHub Pages/Vercel</p>
             </div>
             <div class="mt-4 md:mt-0 flex gap-3">
                 <button onclick="fetchSupabaseData()" class="pixel-btn bg-amber-300 px-4 py-2 font-semibold text-sm rounded hover:bg-amber-400">
@@ -33,12 +35,31 @@
             </div>
         </header>
 
+        <!-- Form Input Data Langsung ke Supabase -->
+        <section class="pixel-box bg-white p-6 rounded-lg space-y-4">
+            <h2 class="pixel-font text-2xl text-slate-700">✍️ Input Data Baru ke Supabase (Web Form)</h2>
+            <form id="insertForm" onsubmit="submitDataToSupabase(event)" class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                <input type="text" id="inputName" placeholder="Name" required class="pixel-input p-2 text-sm rounded bg-slate-50">
+                <input type="number" id="inputAge" placeholder="Age" required class="pixel-input p-2 text-sm rounded bg-slate-50">
+                <input type="email" id="inputEmail" placeholder="Email (@)" required class="pixel-input p-2 text-sm rounded bg-slate-50">
+                <input type="text" id="inputPhone" placeholder="Phone (min 10)" required class="pixel-input p-2 text-sm rounded bg-slate-50">
+                <select id="inputEdu" class="pixel-input p-2 text-sm rounded bg-slate-50">
+                    <option value="SMA">SMA</option>
+                    <option value="SMK">SMK</option>
+                </select>
+                <input type="text" id="inputMajor" placeholder="Major (IPA/RPL...)" required class="pixel-input p-2 text-sm rounded bg-slate-50">
+                <button type="submit" class="pixel-btn bg-indigo-500 text-white font-semibold py-2 px-4 rounded md:col-span-3 lg:col-span-6 hover:bg-indigo-600">
+                    💾 Insert ke Database Supabase
+                </button>
+            </form>
+        </section>
+
         <!-- Main Content -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <!-- Panel Anomali / Error Check -->
             <div class="pixel-box bg-white p-6 rounded-lg space-y-4">
                 <h2 class="pixel-font text-2xl text-rose-600 border-b-2 border-slate-200 pb-2">🚨 Anomaly & Error Check</h2>
-                <p class="text-xs text-slate-500">Mendeteksi input dari game yang tidak valid (contoh: email tanpa @ atau nomor telepon terlalu pendek).</p>
+                <p class="text-xs text-slate-500">Mendeteksi input dari game atau web yang tidak valid (contoh: email tanpa @ atau nomor telepon terlalu pendek).</p>
                 
                 <div id="anomalyList" class="space-y-3 max-h-96 overflow-y-auto pr-2">
                     <div class="p-3 bg-slate-50 border border-slate-200 rounded text-sm">
@@ -76,8 +97,8 @@
 
     <script>
         // Ganti dengan URL dan Anon Key Supabase kamu
-        const SUPABASE_URL = "https://PROJECT_REF.supabase.co";
-        const SUPABASE_ANON_KEY = "SUPABASE_ANON_KEY_KAMU";
+        const SUPABASE_URL = "https://ewjtsqekfggwamnzemgd.supabase.co/rest/v1/";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV3anRzcWVrZmdnd2FtbnplbWdkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEwMjIzMzAsImV4cCI6MjEwNjU5ODMzMH0.isjaQJs2YsA1C7vn5e4VyAhLI_beCUcAC0aTqDwrBu4";
 
         async function fetchSupabaseData() {
             try {
@@ -94,6 +115,41 @@
             } catch (error) {
                 console.error("Error:", error);
                 document.getElementById('tableBody').innerHTML = `<tr><td colspan="5" class="p-4 text-center text-rose-500">Gagal memuat data dari Supabase. Cek konfigurasi URL & Key.</td></tr>`;
+            }
+        }
+
+        async function submitDataToSupabase(event) {
+            event.preventDefault();
+            
+            const newData = {
+                name: document.getElementById('inputName').value,
+                age: document.getElementById('inputAge').value,
+                email: document.getElementById('inputEmail').value,
+                phone: document.getElementById('inputPhone').value,
+                edu: document.getElementById('inputEdu').value,
+                major: document.getElementById('inputMajor').value
+            };
+
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/game_users`, {
+                    method: "POST",
+                    headers: {
+                        "apikey": SUPABASE_ANON_KEY,
+                        "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+                        "Content-Type": "application/json",
+                        "Prefer": "return=minimal"
+                    },
+                    body: JSON.stringify(newData)
+                });
+
+                if (!response.ok) throw new Error("Gagal memasukkan data.");
+                
+                alert("Data berhasil di-insert ke Supabase!");
+                document.getElementById('insertForm').reset();
+                fetchSupabaseData(); // Refresh tabel secara otomatis
+            } catch (error) {
+                console.error("Error:", error);
+                alert("Gagal mengirim data. Cek koneksi atau struktur tabel.");
             }
         }
 
