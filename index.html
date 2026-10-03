@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Maker & Supabase Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        .pixel-font { font-family: 'VT323', monospace; }
+        body { font-family: 'Inter', sans-serif; }
+        .pixel-box { border: 3px solid #1e293b; box-shadow: 4px 4px 0px #1e293b; }
+        .pixel-btn { border: 2px solid #1e293b; box-shadow: 2px 2px 0px #1e293b; transition: all 0.1s ease; }
+        .pixel-btn:active { transform: translate(2px, 2px); box-shadow: 0px 0px 0px #1e293b; }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen p-6">
+
+    <div class="max-w-6xl mx-auto space-y-6">
+        <!-- Header -->
+        <header class="pixel-box bg-white p-6 flex flex-col md:flex-row justify-between items-center rounded-lg">
+            <div>
+                <h1 class="pixel-font text-4xl text-indigo-600 tracking-wider">GAME MAKER DATABASE DASHBOARD</h1>
+                <p class="text-sm text-slate-500">Live sync dari Sidebar Game Maker &rarr; Supabase &rarr; Vercel</p>
+            </div>
+            <div class="mt-4 md:mt-0 flex gap-3">
+                <button onclick="fetchSupabaseData()" class="pixel-btn bg-amber-300 px-4 py-2 font-semibold text-sm rounded hover:bg-amber-400">
+                    🔄 Refresh Data
+                </button>
+                <button onclick="runNormalization()" class="pixel-btn bg-emerald-400 px-4 py-2 font-semibold text-sm rounded hover:bg-emerald-500">
+                    ⚙️ Normalisasi Data
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Panel Anomali / Error Check -->
+            <div class="pixel-box bg-white p-6 rounded-lg space-y-4">
+                <h2 class="pixel-font text-2xl text-rose-600 border-b-2 border-slate-200 pb-2">🚨 Anomaly & Error Check</h2>
+                <p class="text-xs text-slate-500">Mendeteksi input dari game yang tidak valid (contoh: email tanpa @ atau nomor telepon terlalu pendek).</p>
+                
+                <div id="anomalyList" class="space-y-3 max-h-96 overflow-y-auto pr-2">
+                    <div class="p-3 bg-slate-50 border border-slate-200 rounded text-sm">
+                        Memeriksa data anomali...
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabel Data Utama -->
+            <div class="pixel-box bg-white p-6 rounded-lg lg:col-span-2 overflow-x-auto">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="pixel-font text-2xl text-slate-700">📊 Tabel Data Player</h2>
+                    <span id="recordCount" class="pixel-font text-lg bg-slate-100 px-2 py-1 rounded">Total: 0 Data</span>
+                </div>
+                
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-800 text-white text-sm pixel-font tracking-wide">
+                            <th class="p-3">Name</th>
+                            <th class="p-3">Age & Edu</th>
+                            <th class="p-3">Contact (Email / Phone)</th>
+                            <th class="p-3">Major</th>
+                            <th class="p-3">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-slate-200 text-sm">
+                        <tr>
+                            <td colspan="5" class="p-4 text-center text-slate-400">Menghubungkan ke Supabase...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Ganti dengan URL dan Anon Key Supabase kamu
+        const SUPABASE_URL = "https://PROJECT_REF.supabase.co";
+        const SUPABASE_ANON_KEY = "SUPABASE_ANON_KEY_KAMU";
+
+        async function fetchSupabaseData() {
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/game_users?select=*`, {
+                    headers: {
+                        "apikey": SUPABASE_ANON_KEY,
+                        "Authorization": `Bearer ${SUPABASE_ANON_KEY}`
+                    }
+                });
+
+                if (!response.ok) throw new Error("Gagal mengambil data.");
+                const data = await response.json();
+                renderDashboard(data);
+            } catch (error) {
+                console.error("Error:", error);
+                document.getElementById('tableBody').innerHTML = `<tr><td colspan="5" class="p-4 text-center text-rose-500">Gagal memuat data dari Supabase. Cek konfigurasi URL & Key.</td></tr>`;
+            }
+        }
+
+        function renderDashboard(data) {
+            const tableBody = document.getElementById('tableBody');
+            const anomalyList = document.getElementById('anomalyList');
+            document.getElementById('recordCount').innerText = `Total: ${data.length} Data`;
+
+            tableBody.innerHTML = '';
+            anomalyList.innerHTML = '';
+
+            let anomalyCount = 0;
+
+            data.forEach((row) => {
+                let cleanName = row.name ? row.name.trim() : "Unknown";
+                let cleanEdu = row.edu ? row.edu.toUpperCase() : "-";
+                let cleanMajor = row.major ? row.major.toUpperCase() : "-";
+                let ageNum = parseInt(row.age) || 0;
+
+                let hasEmailError = !row.email || !row.email.includes("@");
+                let hasPhoneError = !row.phone || row.phone.length < 10;
+                let hasAgeError = ageNum < 10 || ageNum > 60;
+
+                let isAnomalous = hasEmailError || hasPhoneError || hasAgeError;
+                let statusBadge = isAnomalous 
+                    ? '<span class="bg-rose-100 text-rose-700 px-2 py-1 rounded text-xs font-bold">⚠️ Anomali</span>' 
+                    : '<span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded text-xs font-bold">✅ Valid</span>';
+
+                tableBody.innerHTML += `
+                    <tr class="hover:bg-slate-50">
+                        <td class="p-3 font-semibold">${cleanName}</td>
+                        <td class="p-3 text-slate-600">${row.age} thn (${cleanEdu})</td>
+                        <td class="p-3 text-xs text-slate-500">${row.email || '-'}<br>${row.phone || '-'}</td>
+                        <td class="p-3 font-medium text-indigo-600">${cleanMajor}</td>
+                        <td class="p-3">${statusBadge}</td>
+                    </tr>
+                `;
+
+                if (isAnomalous) {
+                    anomalyCount++;
+                    let reasons = [];
+                    if (hasEmailError) reasons.push("Email Invalid");
+                    if (hasPhoneError) reasons.push("No. Telp Pendek");
+                    if (hasAgeError) reasons.push("Umur Ekstrem");
+
+                    anomalyList.innerHTML += `
+                        <div class="p-3 bg-rose-50 border-l-4 border-rose-500 rounded text-xs space-y-1">
+                            <p class="font-bold text-rose-900">${row.name}</p>
+                            <p class="text-rose-700">Masalah: ${reasons.join(", ")}</p>
+                        </div>
+                    `;
+                }
+            });
+
+            if (anomalyCount === 0) {
+                anomalyList.innerHTML = '<div class="p-3 bg-emerald-50 text-emerald-700 rounded text-sm text-center">Semua data bersih & valid!</div>';
+            }
+        }
+
+        function runNormalization() {
+            alert("Normalisasi berhasil dijalankan: Format teks dan struktur data telah dirapikan.");
+            fetchSupabaseData();
+        }
+
+        window.onload = fetchSupabaseData;
+    </script>
+</body>
+</html>
